@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flood-and-analyse
+  namespace: <NAMESPACE>
+  labels:
+    role: flood-and-analyse
+spec:
+  parallelism: <PODS>
+  template:
+    metadata:
+      name: flood-and-analyse
+      labels:
+        role: flood-and-analyse
+    spec:
+      containers:
+      - name: flood-and-analyse
+        image: hisshadow85/flood-and-analyse:1.1
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        command: ["./flood_and_analyse", "--workername=$(POD_IP)", "--logtime=<LOGTIME>", "--msgcount=<MSGCOUNT>", "--time_to_wait_after_logging_sec=<TTWALS>","--elastic_end_point=<EEP>", "--master=<MASTER>"]
+      restartPolicy: Never
