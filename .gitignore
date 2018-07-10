@@ -1,5 +1,9 @@
 /yamlfiles
 
-/cmd/server/server_one/conf
+/resourses/conf
 
+/bin
 
+/.vscode
+
+debug
