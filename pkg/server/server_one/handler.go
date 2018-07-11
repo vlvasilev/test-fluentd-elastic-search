@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/I330716/test-fluentd-elastic-search/pkg/types"
+	"github.com/fatih/structs"
 )
 
 func setErrorToResponse(errMsg string, w *http.ResponseWriter, status int) {
@@ -115,6 +116,35 @@ func (soh *ServerOneHandler) Enrol(w http.ResponseWriter, r *http.Request) {
 	setOKResponse(w, []byte("Enroled!"))
 }
 
+func isTestFinished(test *Test) bool {
+	if test.Done == true {
+		return true
+	}
+	if test.NumberOfEnroledWorkers <= test.NumberOfFinishedWorkers {
+		return true
+	}
+	currentTime := time.Now()
+	if test.EndTime.Before(currentTime) {
+		return true
+	}
+	return false
+}
+
+func setTestToFinishState(test *Test) {
+	test.Done = true
+	test.EndTime = time.Now()
+	test.Passed = true
+	for _, workerStatus := range test.WorkerStats {
+		if workerStatus.AnalyseState.Error == true {
+			test.Passed = false
+			return
+		}
+	}
+	if test.NumberOfEnroledWorkers != test.NumberOfFinishedWorkers {
+		test.Passed = false
+	}
+}
+
 func (soh *ServerOneHandler) SetLogginStatus(w http.ResponseWriter, r *http.Request) {
 	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "POST", "/logging_status") {
 		return
@@ -152,12 +182,27 @@ func (soh *ServerOneHandler) SetLogginStatus(w http.ResponseWriter, r *http.Requ
 		setErrorToResponse("Worker not enroled", &w, http.StatusUnprocessableEntity)
 		return
 	}
-	test.NumberOfFinishedWorkers++
+
 	worker.LoggingState = loggingStatus
-	test.WorkerStats[workerName] = worker
-	soh.tests[testName] = test
+	soh.tests[testName].WorkerStats[workerName] = worker
 
 	setOKResponse(w, []byte("Loggins Status Saves!"))
+}
+
+func (soh *ServerOneHandler) updateTest(test *Test) {
+	if test.Done != true && isTestFinished(test) {
+		setTestToFinishState(test)
+		//TODO: try to dishpatch this function
+		soh.stopCurrentTest(test.Name, test.Namespace)
+		soh.tests[test.Name] = *test
+	}
+}
+
+func (soh *ServerOneHandler) updateAllTests() {
+
+	for _, test := range soh.tests {
+		soh.updateTest(&test)
+	}
 }
 
 func (soh *ServerOneHandler) GetAllStatus(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +211,8 @@ func (soh *ServerOneHandler) GetAllStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	var index int
+
+	soh.updateAllTests()
 
 	soh.mutex.Lock()
 	tests := make([]Test, len(soh.tests))
@@ -182,6 +229,107 @@ func (soh *ServerOneHandler) GetAllStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 	setOKResponse(w, responseData)
+}
+
+func (soh *ServerOneHandler) getSingleTestLongStatus(w http.ResponseWriter, r *http.Request) {
+	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "GET", "/status/long") {
+		return
+	}
+	if !checkRequestForKeyValueCorrectnesAndSetResponseOnFailure(w, r, "test", "") {
+		return
+	}
+	testName := r.Form.Get("test")
+
+	soh.mutex.Lock()
+	test, ok := soh.tests[testName]
+	defer soh.mutex.Unlock()
+	if !ok {
+		setErrorToResponse("There is no sush test: "+testName, &w, http.StatusNotFound)
+		return
+	}
+
+	data, err := json.Marshal(&test)
+	if err != nil {
+		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	setOKResponse(w, data)
+}
+
+func (soh *ServerOneHandler) getSingleTestShortStatus(w http.ResponseWriter, r *http.Request) {
+	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "GET", "/status/short") {
+		return
+	}
+	if !checkRequestForKeyValueCorrectnesAndSetResponseOnFailure(w, r, "test", "") {
+		return
+	}
+	testName := r.Form.Get("test")
+
+	soh.mutex.Lock()
+	test, ok := soh.tests[testName]
+
+	if !ok {
+		soh.mutex.Unlock()
+		setErrorToResponse("There is no sush test: "+testName, &w, http.StatusNotFound)
+		return
+	}
+	soh.mutex.Unlock()
+
+	shortData := structs.Map(&test)
+	soh.mutex.Unlock()
+	delete(shortData, "WorkerStats")
+
+	data, err := json.Marshal(&shortData)
+
+	if err != nil {
+		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	setOKResponse(w, data)
+}
+
+func (soh *ServerOneHandler) getSingleTestNormaltStatus(w http.ResponseWriter, r *http.Request) {
+	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "GET", "/status/normal") {
+		return
+	}
+	if !checkRequestForKeyValueCorrectnesAndSetResponseOnFailure(w, r, "test", "") {
+		return
+	}
+	testName := r.Form.Get("test")
+
+	soh.mutex.Lock()
+	test, ok := soh.tests[testName]
+
+	if !ok {
+		soh.mutex.Unlock()
+		setErrorToResponse("There is no sush test: "+testName, &w, http.StatusNotFound)
+		return
+	}
+
+	test.WorkerStats = make(map[string]WorkerStats)
+
+	for key, value := range soh.tests[testName].WorkerStats {
+		test.WorkerStats[key] = value
+	}
+
+	soh.mutex.Unlock()
+
+	for key, value := range test.WorkerStats {
+		if value.AnalyseState.Error == true {
+			delete(test.WorkerStats, key)
+		}
+	}
+
+	data, err := json.Marshal(&test)
+
+	if err != nil {
+		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	setOKResponse(w, data)
 }
 
 func (soh *ServerOneHandler) SetAnalyseStatus(w http.ResponseWriter, r *http.Request) {
@@ -222,9 +370,16 @@ func (soh *ServerOneHandler) SetAnalyseStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	test.NumberOfFinishedWorkers++
 	worker.AnalyseState = analyseStatus
+	test.WorkerStats[workerName] = worker
+	//TODO move this logic somewhere else. Is to havy to deal with it while mutex is locked
+	if isTestFinished(&test) {
+		setTestToFinishState(&test)
+		soh.stopCurrentTest(testName, test.Namespace)
+	}
 
-	soh.tests[testName].WorkerStats[workerName] = worker
+	soh.tests[testName] = test
 
 	setOKResponse(w, []byte("Analyse Status Saves!"))
 }
@@ -278,9 +433,14 @@ func (soh *ServerOneHandler) allocateTest(resources TestInitResources) error {
 
 func (soh *ServerOneHandler) destroyTest(testName, namespace string) error {
 	soh.stopCurrentTest(testName, namespace)
-	soh.mutex.Lock()
-	defer soh.mutex.Unlock()
 	delete(soh.tests, testName)
+	return nil
+}
+
+func (soh *ServerOneHandler) destroyTestSync(testName, namespace string) error {
+	soh.mutex.Lock()
+	soh.destroyTest(testName, namespace)
+	defer soh.mutex.Unlock()
 	return nil
 }
 
@@ -302,11 +462,35 @@ func (soh *ServerOneHandler) startTest(w http.ResponseWriter, r *http.Request) {
 	data, err := soh.deployPods(resources)
 	if err != nil {
 		setErrorToResponse("Can't deploy workers: "+string(err.Error())+" "+string(data), &w, http.StatusUnprocessableEntity)
-		soh.destroyTest(resources.TestName, resources.Namespace)
+		soh.destroyTestSync(resources.TestName, resources.Namespace)
 		return
 	}
 
 	setOKResponse(w, []byte("Test is runing!\n"+string(data)))
+}
+
+func (soh *ServerOneHandler) EliminateTest(w http.ResponseWriter, r *http.Request) {
+	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "POST", "/test/destroy") {
+		return
+	}
+
+	if !checkRequestForKeyValueCorrectnesAndSetResponseOnFailure(w, r, "test", "") {
+		return
+	}
+
+	testName := r.Form.Get("test")
+
+	soh.mutex.Lock()
+	test, ok := soh.tests[testName]
+	defer soh.mutex.Unlock()
+	if !ok {
+		setErrorToResponse("There is no sush test: "+testName, &w, http.StatusNotFound)
+		return
+	}
+
+	soh.destroyTest(testName, test.Namespace)
+
+	setOKResponse(w, []byte("Test is destroyed!"))
 }
 
 func (soh *ServerOneHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +512,10 @@ func (soh *ServerOneHandler) Init(address, port, kubeconfig string) {
 	soh.hadlerFunctions["/logging_status"] = soh.SetLogginStatus
 	soh.hadlerFunctions["/analyse_status"] = soh.SetAnalyseStatus
 	soh.hadlerFunctions["/status/all"] = soh.GetAllStatus
+	soh.hadlerFunctions["/status/long"] = soh.getSingleTestLongStatus
+	soh.hadlerFunctions["/status/short"] = soh.getSingleTestShortStatus
 	soh.hadlerFunctions["/test/start"] = soh.startTest
+	soh.hadlerFunctions["/test/destroy"] = soh.EliminateTest
 }
 
 func (soh *ServerOneHandler) GetListeningEndPoint() string {

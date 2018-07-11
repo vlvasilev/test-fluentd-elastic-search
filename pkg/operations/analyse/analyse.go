@@ -3,8 +3,10 @@ package analise
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 
 	"github.com/I330716/test-fluentd-elastic-search/pkg/types"
 	"github.com/I330716/test-fluentd-elastic-search/pkg/util"
@@ -30,11 +32,19 @@ func GetRecords(logFile string) types.Records {
 	return records
 }
 
-func GetRecordsFromJSON(jsonData *[]byte) *types.Records {
+func GetRecordsFromJSON(jsonData []byte) (*types.Records, error) {
 	records := new(types.Records)
-	err := json.Unmarshal(*jsonData, records)
-	check(err)
-	return records
+	if len(jsonData) < 1 {
+		return nil, errors.New("empty data to unmarshal in GetRecordsFromJSON")
+	}
+	err := json.Unmarshal(jsonData, records)
+	if err != nil {
+		log.Printf(string(jsonData))
+		return nil, errors.New(err.Error() + " : " + string(jsonData))
+		//check(err)
+	}
+
+	return records, nil
 }
 
 func doesMessageLenghtIsCorrenct(msg *types.Message, maxSentences int) (bool, string) {

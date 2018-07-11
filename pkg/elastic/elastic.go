@@ -34,19 +34,21 @@ func (e *ElasticSearchClient) IsSuchIndex(index string) bool {
 }
 
 func (e *ElasticSearchClient) GetIndexRecords(index, logtype, key, value string) ([]byte, error) {
-	searchQuery := []byte("{\"query\":{\"term\":{\"" + key + "\":\"" + value + "\"}},\"_source\":[\"worker\",\"message\",\"sentence\",\"text\"],\"sort\":[{\"message\":{\"order\":\"asc\"}},{\"sentence\":{\"order\":\"asc\"}}],\"from\":0,\"size\":10000}")
+	//searchQuery := []byte("{\"query\":{\"term\":{\"" + key + "\":\"" + value + "\"}},\"_source\":[\"worker\",\"message\",\"sentence\",\"text\"],\"sort\":[{\"message\":{\"order\":\"asc\"}},{\"sentence\":{\"order\":\"asc\"}}],\"from\":0,\"size\":10000}")
+	searchQuery := []byte("{\"query\":{\"term\":{\"" + key + "\":\"" + value + "\"}},\"_source\":[\"worker\",\"message\",\"sentence\",\"text\"],\"from\":0,\"size\":10000}")
 	rawurl := e.api + "/" + index + "/" + logtype + "/_search"
 	url, _ := url.Parse(rawurl)
-
+	//log.Println(url.String())
+	//log.Println(string(searchQuery))
 	status, body, err := requests.MakeJsonHTTPPOSTRequest(url.String(), searchQuery)
 	if status != requests.OK || err != nil {
 		return []byte{}, err
 	}
-
+	//log.Println(string(body))
 	data := make(map[string]interface{})
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return []byte{}, err
+		return []byte{}, errors.New("Problem with unmurshaling response body: " + err.Error())
 	}
 
 	numhit, ok := data["hits"].(map[string]interface{})["total"].(float64)
@@ -65,7 +67,7 @@ func (e *ElasticSearchClient) GetIndexRecords(index, logtype, key, value string)
 	}
 
 	hits, ok := data["hits"].(map[string]interface{})["hits"].([]interface{})
-	if !ok {
+	if !ok || len(hits) < 1 {
 		return []byte{}, errors.New("can't extract hits from response")
 	}
 
@@ -77,9 +79,13 @@ func (e *ElasticSearchClient) GetIndexRecords(index, logtype, key, value string)
 		maps[index] = source
 	}
 
+	if len(maps) < 1 {
+		return []byte{}, errors.New("the extracted records are zero lenght")
+	}
+
 	result, err := json.Marshal(maps)
 	if err != nil {
-		return []byte{}, err
+		return []byte{}, errors.New("can't marshal extracted records: " + err.Error())
 	}
 	return result, nil
 }

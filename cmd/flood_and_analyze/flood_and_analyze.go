@@ -23,8 +23,11 @@ func generateLogs(workerName *string, msg *types.Message, msgCount uint64, logSi
 	return loggingState
 }
 
-func getExtraxtedMessages(extactedDataJSON *[]byte) (*types.Messages, error) {
-	records := analise.GetRecordsFromJSON(extactedDataJSON)
+func getExtraxtedMessages(extactedDataJSON []byte) (*types.Messages, error) {
+	records, err := analise.GetRecordsFromJSON(extactedDataJSON)
+	if err != nil {
+		return nil, err
+	}
 	messages := records.ToMessages()
 	return messages, nil
 }
@@ -84,7 +87,7 @@ func main() {
 	if err != nil {
 		analyseState = getErrorSetAnalyseStatus(err)
 	} else {
-		messages, err := getExtraxtedMessages(&data)
+		messages, err := getExtraxtedMessages(data)
 		data = nil
 		if err != nil {
 			analyseState = getErrorSetAnalyseStatus(err)
