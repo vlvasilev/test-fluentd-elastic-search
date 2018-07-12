@@ -24,9 +24,7 @@ The server needs tree parameters
 
 - `--kubeconfig` The path to a valid kubeconfig file. Defaults to `./conf/kubeconfig.yaml`
 
-> NOTE: If the server is run on local machine the pods will receive for an address to send their data
-
->       `--address:--port`, so they may not have connection with their master.
+> NOTE: If the server is run on local machine the pods will receive for an address to send their data `--address:--port`, so they may not have connection with their master.
 
 ## Start a Test
 
@@ -40,9 +38,7 @@ To start a test one will need the following parameters:
 
 - `msgcount`  The number of full text(tales) which are going to be dumped. This content of this tale is it /resources/tex.tx. If one wants to change the text just have to replace the content. The text is separated by `'.'` `'!'` and `'?'`.Because elastic search has beeb limited to 10000 hits on normal search the maximum number must be no more than 454.The default text has 22 sentences. 454 x 22 = 9988 lines which will be stored as same number records in the elastic.
 
-- `logtime_ms`  The time duration in ms in which the given number of messages will be dumped.
-
-              For example, if you set the value to 30000 this will dump all the messages denoted by msgcount for 30 seconds.
+- `logtime_ms`  The time duration in ms in which the given number of messages will be dumped. For example, if you set the value to 30000 this will dump all the messages denoted by msgcount for 30 seconds.
 
 - `time_to_wait_after_logging_sec`  The time which the worker will is going to sleep after the logging is done. This sleep duration is needed because at the time when the logging is all of some logs may not be yet in the elastic search cluster due to slow work of the fluent(d/bit)
 
