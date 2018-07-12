@@ -274,7 +274,6 @@ func (soh *ServerOneHandler) getSingleTestShortStatus(w http.ResponseWriter, r *
 		setErrorToResponse("There is no sush test: "+testName, &w, http.StatusNotFound)
 		return
 	}
-	soh.mutex.Unlock()
 
 	shortData := structs.Map(&test)
 	soh.mutex.Unlock()
@@ -316,8 +315,9 @@ func (soh *ServerOneHandler) getSingleTestNormaltStatus(w http.ResponseWriter, r
 
 	soh.mutex.Unlock()
 
+	//get workers only with errors in the analyze
 	for key, value := range test.WorkerStats {
-		if value.AnalyseState.Error == true {
+		if value.AnalyseState.Error == false {
 			delete(test.WorkerStats, key)
 		}
 	}
@@ -514,6 +514,7 @@ func (soh *ServerOneHandler) Init(address, port, kubeconfig string) {
 	soh.hadlerFunctions["/status/all"] = soh.GetAllStatus
 	soh.hadlerFunctions["/status/long"] = soh.getSingleTestLongStatus
 	soh.hadlerFunctions["/status/short"] = soh.getSingleTestShortStatus
+	soh.hadlerFunctions["/status/normal"] = soh.getSingleTestNormaltStatus
 	soh.hadlerFunctions["/test/start"] = soh.startTest
 	soh.hadlerFunctions["/test/destroy"] = soh.EliminateTest
 }

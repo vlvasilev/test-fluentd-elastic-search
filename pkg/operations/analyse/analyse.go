@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strconv"
 
 	"github.com/I330716/test-fluentd-elastic-search/pkg/types"
 	"github.com/I330716/test-fluentd-elastic-search/pkg/util"
@@ -55,6 +56,20 @@ func doesMessageLenghtIsCorrenct(msg *types.Message, maxSentences int) (bool, st
 		buffer.WriteString(fmt.Sprintln("The count is ", currentMessageSize, " and must be ", maxSentences, "."))
 		if len(msg.Sentences) > 0 {
 			buffer.WriteString(fmt.Sprintln("Starts from ", msg.Sentences[0].Number, " and ends at ", msg.Sentences[currentMessageSize-1].Number, "."))
+			sentenceNumbers := make([]byte, maxSentences)
+			for _, sentence := range msg.Sentences {
+				if sentence.Number > 0 && sentence.Number <= maxSentences {
+					sentenceNumbers[sentence.Number-1] = 1
+				}
+			}
+			buffer.WriteString("\nMissing: ")
+			var separator string
+			for index, value := range sentenceNumbers {
+				if value == 0 {
+					buffer.WriteString(separator + strconv.Itoa(index+1))
+					separator = ","
+				}
+			}
 		}
 		return false, buffer.String()
 	}
