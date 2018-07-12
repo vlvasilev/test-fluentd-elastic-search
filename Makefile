@@ -43,6 +43,13 @@ docker-push-flood-and-analyze:
 .PHONY: docker-push
 docker-push: docker-push-server-one docker-push-flood-and-analyze
 
+.PHONY: deploy-server-one
+deploy-server-one:
+	@kubectl apply -f ./docs/server/deploying/yaml/namespace.yaml
+	@kubectl apply -f ./docs/server/deploying/yaml/serviceaccount.yaml
+	@kubectl apply -f ./docs/server/deploying/yaml/clusterrolebinding.yaml
+	@kubectl apply -f ./docs/server/deploying/yaml/deployment.yaml
+	@kubectl apply -f ./docs/server/deploying/yaml/loadbalancer.yaml
 
 .PHONY: clean
 clean:

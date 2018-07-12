@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-one
+  namespace: garden
+  labels:
+    app: server
+    role: test
+spec:
+  selector:
+    matchLabels:
+      app: server
+      role: test
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: server
+        role: test
+    spec:
+      serviceAccountName: server-one-account
+      containers:
+      - name: server-one
+        image: hisshadow85/server-one:latest
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 300Mi
+          requests:
+            cpu: 300m
+            memory: 200Mi
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command: 
+        - ./server_one
+        - --address=$(POD_IP)
+        - --port=8000
+        ports:
+        - containerPort: 8000
+          name: api 
+          protocol: TCP
+#        volumeMounts:
+#        - name: conf
+#          mountPath: /conf
+#      volumes:
+#      - name: conf
+#        configMap:
+#          name: server-one-config

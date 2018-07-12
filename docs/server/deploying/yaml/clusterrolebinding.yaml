@@ -1,0 +1,43 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: server-one-role
+  labels:
+    app: server
+    role: test
+rules:
+- apiGroups:
+  - ""
+  - "batch"
+  resources:
+  - namespaces
+  - pods
+  - jobs
+  verbs:
+  - get
+  - watch
+  - list
+  - update
+  - create
+  - patch
+  - delete
+  
+
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: server
+    role: test
+  name: server-one-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: server-one-role
+subjects:
+- kind: ServiceAccount
+  name: server-one-account
+  namespace: garden
