@@ -1,0 +1,63 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: fluent-bit
+    role: logging
+  name: fluent-bit
+  namespace: garden
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+      role: logging
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+        role: logging
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - /fluent-bit/bin/fluent-bit
+        - -c
+        - /fluent-bit/etc/fluent-bit.conf
+        env:
+        - name: FLUENTD_HOST
+          value: fluentd-es.garden.svc
+        - name: FLUENTD_PORT
+          value: "24224"
+        image: fluent/fluent-bit:0.13.4
+        imagePullPolicy: IfNotPresent
+        name: fluent-bit
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 40Mi
+        volumeMounts:
+        - mountPath: /fluent-bit/etc
+          name: config
+        - mountPath: /var/log
+          name: varlog
+        - mountPath: /var/lib/docker/containers
+          name: varlibdockercontainers
+          readOnly: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: fluent-bit-config
+        name: config
+      - hostPath:
+          path: /var/log
+          type: ""
+        name: varlog
+      - hostPath:
+          path: /var/lib/docker/containers
+          type: ""
+        name: varlibdockercontainers

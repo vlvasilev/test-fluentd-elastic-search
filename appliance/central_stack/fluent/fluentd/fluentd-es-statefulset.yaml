@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: fluentd-es
+    role: logging
+  name: fluentd-es
+  namespace: garden
+spec:
+  selector:
+    matchLabels:
+      app: fluentd-es
+      role: logging
+  serviceName: fluentd-es
+  template:
+    metadata:
+      labels:
+        app: fluentd-es
+        role: logging
+    spec:
+      containers:
+      - env:
+        - name: FLUENTD_ARGS
+          value: --no-supervisor -q
+        image: eu.gcr.io/gardener-project/gardener/fluentd-es:0.5.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 24224
+          timeoutSeconds: 1
+          initialDelaySeconds: 5
+        name: fluentd-es
+        ports:
+        - containerPort: 24224
+          name: fwd-input
+          protocol: TCP
+        - containerPort: 24224
+          name: fwd-input-udp
+          protocol: UDP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 250Mi
+        volumeMounts:
+        - mountPath: /etc/fluent/config.d
+          name: config-volume
+        - mountPath: /gardener/flentd-buffers
+          name: fluentd
+      serviceAccount: fluentd-es
+      serviceAccountName: fluentd-es
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: fluentd-es-config
+        name: config-volume
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      creationTimestamp: null
+      name: fluentd
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi

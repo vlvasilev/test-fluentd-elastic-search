@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd-es
+  namespace: garden
+spec:
+  ports:
+  - name: fluentd-input
+    port: 24224
+    protocol: TCP
+    targetPort: fwd-input
+  - name: fluentd-input-udp
+    port: 24224
+    protocol: UDP
+    targetPort: fwd-input-udp
+  selector:
+    app: fluentd-es
+    role: logging
+  sessionAffinity: None
+  type: ClusterIP
