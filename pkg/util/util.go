@@ -49,9 +49,23 @@ func GetPodLastHash(pod string) string {
 	return pod
 }
 
+func trimStrings(unescapedStrings []string) {
+	for index, s := range unescapedStrings {
+		unescapedStrings[index] = strings.TrimSpace(s)
+	}
+}
+
+func replaceNewLineInStrings(strs []string) {
+	for index, s := range strs {
+		strs[index] = strings.Replace(s, "\n", " ", -1)
+	}
+}
+
 func MakeMessage(filePath string, number uint64) *types.Message {
 	text := ReadFile(filePath)
 	sentences := separeteSentences(text)
+	trimStrings(sentences)
+	replaceNewLineInStrings(sentences)
 
 	msg := &types.Message{
 		Number:    number,

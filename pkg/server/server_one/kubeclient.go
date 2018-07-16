@@ -75,12 +75,12 @@ func (k *KubeClient) DeployJob(numberOfPods int32, testName, namespace, logtime,
 							},
 							Resources: apiv1.ResourceRequirements{
 								Limits: apiv1.ResourceList{
-									apiv1.ResourceCPU:    *resource.NewMilliQuantity(40, resource.DecimalSI),
-									apiv1.ResourceMemory: *resource.NewQuantity(50000000, resource.DecimalSI),
+									apiv1.ResourceCPU:    *resource.NewMilliQuantity(20, resource.DecimalSI),
+									apiv1.ResourceMemory: *resource.NewQuantity(40000000, resource.DecimalSI),
 								},
 								Requests: apiv1.ResourceList{
-									apiv1.ResourceCPU:    *resource.NewMilliQuantity(30, resource.DecimalSI),
-									apiv1.ResourceMemory: *resource.NewQuantity(30000000, resource.DecimalSI),
+									apiv1.ResourceCPU:    *resource.NewMilliQuantity(10, resource.DecimalSI),
+									apiv1.ResourceMemory: *resource.NewQuantity(10000000, resource.DecimalSI),
 								},
 							},
 							Command: []string{

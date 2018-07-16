@@ -10,3 +10,4 @@ curl -X POST -d '{"number_of_sentences":22,"number_of_messages":5,"number_of_rea
 
 #retrieve record from elastic search cluster 
 curl -X POST -H "Content-type: application/json" -d '{"query":{"term":{"worker":"test001"}},"_source":["worker","message","sentence","text"],"from":0,"size":10000}' http://localhost:9200/logstash-2018.07.12/_search?pretty=true 
+'{"query":{"match_phrase_prefix":{"text":" One"}},"_source":["worker","message","sentence","text","log"],"from":0,"size":10000}'

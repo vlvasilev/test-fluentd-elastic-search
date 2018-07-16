@@ -54,10 +54,10 @@ spec:
         resources:
           limits:
             cpu: "1"
-            memory: 1536Mi
+            memory: 3000Mi
           requests:
-            cpu: 100m
-            memory: 1536Mi
+            cpu: 900m
+            memory: 3000Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -101,3 +101,4 @@ spec:
           storage: 8Gi
     status:
       phase: Pending
+#bitnami/elasticsearch:6-ol-7-master

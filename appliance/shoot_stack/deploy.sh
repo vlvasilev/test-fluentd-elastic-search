@@ -7,7 +7,7 @@ fi
 
 #delete all shoot namespaces
 kubectl delete namespace -l garden.sapcloud.io/role=shoot
-sleep 30
+sleep 60
 
 #make new shoot namespaces and deploy elastic-search
 for i in `seq 1 $1`; do
