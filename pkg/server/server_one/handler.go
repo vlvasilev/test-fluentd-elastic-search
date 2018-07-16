@@ -60,7 +60,7 @@ func loadOjectFromRequestBodyAndSetResponseOnFailure(w http.ResponseWriter, r *h
 
 	err = json.Unmarshal(body, object)
 	if err != nil {
-		setErrorToResponse("Error reading body:"+err.Error(), &w, http.StatusBadRequest)
+		setErrorToResponse("Error reading json body:"+err.Error(), &w, http.StatusBadRequest)
 		return false
 	}
 	return true
@@ -205,13 +205,27 @@ func (soh *ServerOneHandler) updateAllTests() {
 	}
 }
 
+func marshalData(r *http.Request, data interface{}) ([]byte, error) {
+	r.ParseForm()
+	pretty := r.Form.Get("pretty")
+
+	if pretty == "true" {
+		return json.MarshalIndent(data, "", "    ")
+	} else {
+		return json.Marshal(data)
+	}
+}
+
 func (soh *ServerOneHandler) GetAllStatus(w http.ResponseWriter, r *http.Request) {
 	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "GET", "/status/all") {
 		return
 	}
 
-	var index int
-
+	var (
+		index        int
+		err          error
+		responseData []byte
+	)
 	soh.updateAllTests()
 
 	soh.mutex.Lock()
@@ -223,7 +237,8 @@ func (soh *ServerOneHandler) GetAllStatus(w http.ResponseWriter, r *http.Request
 	}
 	soh.mutex.Unlock()
 
-	responseData, err := json.Marshal(tests)
+	responseData, err = marshalData(r, tests)
+
 	if err != nil {
 		setErrorToResponse("Server can't Marshal Status Data", &w, http.StatusInternalServerError)
 		return
@@ -248,7 +263,7 @@ func (soh *ServerOneHandler) getSingleTestLongStatus(w http.ResponseWriter, r *h
 		return
 	}
 
-	data, err := json.Marshal(&test)
+	data, err := marshalData(r, &test)
 	if err != nil {
 		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
 		return
@@ -279,7 +294,7 @@ func (soh *ServerOneHandler) getSingleTestShortStatus(w http.ResponseWriter, r *
 	soh.mutex.Unlock()
 	delete(shortData, "WorkerStats")
 
-	data, err := json.Marshal(&shortData)
+	data, err := marshalData(r, &shortData)
 
 	if err != nil {
 		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
@@ -322,7 +337,7 @@ func (soh *ServerOneHandler) getSingleTestNormaltStatus(w http.ResponseWriter, r
 		}
 	}
 
-	data, err := json.Marshal(&test)
+	data, err := marshalData(r, &test)
 
 	if err != nil {
 		setErrorToResponse("can't extract valid JSON data from entry", &w, http.StatusUnprocessableEntity)
@@ -444,6 +459,21 @@ func (soh *ServerOneHandler) destroyTestSync(testName, namespace string) error {
 	return nil
 }
 
+func (soh *ServerOneHandler) EliminateAllTest(w http.ResponseWriter, r *http.Request) {
+	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "POST", "/test/destroy_all") {
+		return
+	}
+
+	for _, test := range soh.tests {
+		soh.stopCurrentTest(test.Name, test.Namespace)
+	}
+
+	soh.mutex.Lock()
+	soh.tests = make(map[string]Test)
+	defer soh.mutex.Unlock()
+	setOKResponse(w, []byte("Tests are destroyed!\n"))
+}
+
 func (soh *ServerOneHandler) startTest(w http.ResponseWriter, r *http.Request) {
 	if !checkRequestCorrectnessAndSetResponseOnFailure(w, r, "POST", "/test/start") {
 		return
@@ -517,6 +547,7 @@ func (soh *ServerOneHandler) Init(address, port, kubeconfig string) {
 	soh.hadlerFunctions["/status/normal"] = soh.getSingleTestNormaltStatus
 	soh.hadlerFunctions["/test/start"] = soh.startTest
 	soh.hadlerFunctions["/test/destroy"] = soh.EliminateTest
+	soh.hadlerFunctions["/test/destroy_all"] = soh.EliminateAllTest
 }
 
 func (soh *ServerOneHandler) GetListeningEndPoint() string {
