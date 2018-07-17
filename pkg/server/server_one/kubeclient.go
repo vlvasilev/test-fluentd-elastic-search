@@ -79,7 +79,7 @@ func (k *KubeClient) DeployJob(numberOfPods int32, testName, namespace, logtime,
 									apiv1.ResourceMemory: *resource.NewQuantity(40000000, resource.DecimalSI),
 								},
 								Requests: apiv1.ResourceList{
-									apiv1.ResourceCPU:    *resource.NewMilliQuantity(5, resource.DecimalSI),
+									apiv1.ResourceCPU:    *resource.NewMilliQuantity(10, resource.DecimalSI),
 									apiv1.ResourceMemory: *resource.NewQuantity(10000000, resource.DecimalSI),
 								},
 							},

@@ -6,7 +6,7 @@ TIME_TO_WAIT_AFTER_LOGGING=${4:-60}
 MASTER=${5:-"localhost:8000"}
 
 echo "Waiting all pods to be in Running state"
-while [ -z $(kubectl get pod --all-namespaces -l role=logging  | awk '{if(NR>1)print $4}' | grep -v Running) ]; do sleep 1; done
+while [ -n $(kubectl get pod --all-namespaces -l role=logging  | awk '{if(NR>1)print $4}' | grep -v Running) ]; do sleep 1; done
 echo "All pods are in running state"
 
 
