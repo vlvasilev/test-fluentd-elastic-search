@@ -46,14 +46,16 @@ data:
         @type file
         path /gardener/flentd-buffers/kubernetes.shoot.buffer
         flush_mode interval
-        retry_type exponential_backoff
-        flush_thread_count 2
+        retry_type periodic
+        retry_wait 1s
+        flush_thread_count 8
         flush_interval 5s
-        retry_forever 
+        retry_timeout 5m
         retry_max_interval 30
-        chunk_limit_size 2M
-        queue_limit_length 8
+        chunk_limit_size 1M
+        queue_limit_length 2048
         overflow_action block
+        flush_at_shutdown 
       </buffer>
     </match>
 
@@ -69,14 +71,16 @@ data:
         @type file
         path /gardener/flentd-buffers/kubernetes.garden.buffer
         flush_mode interval
-        retry_type exponential_backoff
-        flush_thread_count 2
+        retry_type periodic
+        retry_wait 1s
+        flush_thread_count 8
         flush_interval 5s
-        retry_forever
+        retry_timeout 5m
         retry_max_interval 30
-        chunk_limit_size 2M
-        queue_limit_length 8
+        chunk_limit_size 1M
+        queue_limit_length 2048
         overflow_action block
+        flush_at_shutdown
       </buffer>
     </match>
   system.conf: |-

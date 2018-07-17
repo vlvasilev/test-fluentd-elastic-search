@@ -27,8 +27,9 @@ spec:
         livenessProbe:
           tcpSocket:
             port: 24224
-          timeoutSeconds: 1
-          initialDelaySeconds: 5
+          periodSeconds: 30
+          timeoutSeconds: 15
+          initialDelaySeconds: 30
         name: fluentd-es
         ports:
         - containerPort: 24224
@@ -39,8 +40,8 @@ spec:
           protocol: UDP
         resources:
           limits:
-            cpu: 200m
-            memory: 500Mi
+            cpu: 1000Mi
+            memory: 550Mi
           requests:
             cpu: 100m
             memory: 250Mi

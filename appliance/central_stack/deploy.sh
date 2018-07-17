@@ -1,7 +1,7 @@
 #!bin/bash
 
 SCRIPT_PATH=$(dirname "$0")
-if [ $SCRIPT_PATH eq "" ]; then
+if [ -z "$SCRIPT_PATH" ]; then
   SCRIPT_PATH="."
 fi
 

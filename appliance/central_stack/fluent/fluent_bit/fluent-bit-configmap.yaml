@@ -20,6 +20,7 @@ data:
         Name              tail
         Tag               kubernetes.*
         Path              /var/log/containers/*.log
+        Exclude_Path      *_garden_fluent-bit-*.log,*_garden_fluentd-es-*.log
         Parser            docker
         DB                /var/log/flb_kube.db
         Mem_Buf_Limit     5MB
