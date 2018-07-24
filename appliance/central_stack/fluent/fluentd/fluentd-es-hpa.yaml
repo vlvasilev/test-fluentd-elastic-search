@@ -5,8 +5,8 @@ metadata:
   name: fluentd-es
   namespace: garden
 spec:
-  maxReplicas: 6
-  minReplicas: 1
+  maxReplicas: 3
+  minReplicas: 3
   scaleTargetRef:
     apiVersion: apps/v1
     kind: StatefulSet
@@ -15,4 +15,8 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 40
+      targetAverageUtilization: 100
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageUtilization: 100

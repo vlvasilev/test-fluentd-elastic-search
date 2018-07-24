@@ -33,7 +33,7 @@ spec:
         name: fluent-bit
         resources:
           limits:
-            cpu: 60m
+            cpu: 40m
             memory: 80Mi
           requests:
             cpu: 15m

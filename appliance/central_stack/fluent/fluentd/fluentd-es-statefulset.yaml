@@ -18,18 +18,35 @@ spec:
         app: fluentd-es
         role: logging
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - fluentd-es
+              - key: role
+                operator: In
+                values:
+                - logging
+            topologyKey: "kubernetes.io/hostname"
       containers:
-      - env:
+      - env: 
         - name: FLUENTD_ARGS
-          value: --no-supervisor -q
+          value: "--workers=16 -v"
         image: eu.gcr.io/gardener-project/gardener/fluentd-es:0.5.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           tcpSocket:
             port: 24224
-          periodSeconds: 30
-          timeoutSeconds: 15
-          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 2
+          initialDelaySeconds: 5
+          # periodSeconds: 30
+          # timeoutSeconds: 10
+          # initialDelaySeconds: 30
         name: fluentd-es
         ports:
         - containerPort: 24224
@@ -40,11 +57,11 @@ spec:
           protocol: UDP
         resources:
           limits:
-            cpu: 1000Mi
-            memory: 550Mi
+            cpu: 700m
+            memory: 3200Mi
           requests:
-            cpu: 100m
-            memory: 250Mi
+            cpu: 450m
+            memory: 3000Mi
         volumeMounts:
         - mountPath: /etc/fluent/config.d
           name: config-volume

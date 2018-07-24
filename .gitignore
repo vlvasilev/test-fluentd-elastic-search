@@ -13,3 +13,5 @@ debug
 *.swp
 
 *~
+
+build/fluentd
