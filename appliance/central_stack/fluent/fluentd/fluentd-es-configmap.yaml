@@ -24,31 +24,46 @@ data:
     # </match>
 
     # Enriches records with Kubernetes metadata
+    # <filter kubernetes.**>
+    #   @type kubernetes_metadata
+    #   @log_level warn
+    #   cache_size 10000
+    #   watch false
+    #   cache_ttl -1
+    # </filter>
+    # # Remove unneeded fields
+    # <filter kubernetes.**>
+    #   @type record_transformer
+    #   @log_level warn
+    #   remove_keys $.kubernetes.master_url,$.kubernetes.namespace_id
+    # </filter>
+
     <filter kubernetes.**>
-      @type kubernetes_metadata
-      @log_level warn
-      cache_size 10000
-      watch false
-      cache_ttl -1
+      @type genhashvalue
+
+      keys time, tag
+      hash_type md5    # md5/sha1/sha256/sha512/mur128
+      base64_enc true
+      base91_enc false
+      set_key _hash
+      separator _
+      inc_time_as_key true
+      inc_tag_as_key true
     </filter>
-    # Remove unneeded fields
-    <filter kubernetes.**>
-      @type record_transformer
-      @log_level warn
-      remove_keys $.kubernetes.master_url,$.kubernetes.namespace_id
-    </filter>
-    # Decide which is shoot record and which is not
+    
+    #Decide which is shoot record and which is not
     <match kubernetes.**>
+      @id rewrite_tag_filter
       @type rewrite_tag_filter
-      @log_level warn
+      @log_level debug
       <rule>
-        key $.kubernetes.namespace_labels.garden_sapcloud_io/role
-        pattern ^shoot$
-        tag shoot.${tag}
+        key $.kubernetes.namespace_name
+        pattern ^(shoot.*)
+        tag $1
       </rule>
       <rule>
-        key $.kubernetes.namespace_labels.garden_sapcloud_io/role
-        pattern ^shoot$
+        key $.kubernetes.namespace_name
+        pattern ^shoot.*
         invert true
         tag non-shoot.${tag}
       </rule>
@@ -59,7 +74,7 @@ data:
       @log_level warn
     </match>
 
-    <match shoot.kubernetes.**>
+    <match shoot**>
       @id elasticsearch_dynamic
       @type elasticsearch_dynamic
       @log_level debug
@@ -67,42 +82,19 @@ data:
       host elasticsearch-logging.${record['kubernetes']['namespace_name']}.svc
       port 9200
       logstash_format true
-      <buffer time,tag>
+      id_key _hash
+      reconnect_on_error true
+      <buffer tag>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 1024
+        queued_chunks_limit_size 2048
         # The number of threads of output plugins, which is used to write chunks in parallel
         flush_thread_count 100
-        #chunks per 5s
-        timekey 5
-        # delay for flush
-        timekey_wait 0
-        # The max size of each chunks
-        chunk_limit_size 128KB
-        # he size limitation of this buffer plugin instance
-        total_limit_size 3G
-        # The percentage of chunk size threshold for flushing  
-        chunk_full_threshold 0.9 
-        # no compression
-        compress text
-        # flush/write all buffer chunks at shutdown
-        flush_at_shutdown
-        # flush/write chunks per specified time
-        flush_interval 1s 
-        # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
-        flush_thread_interval 1.0
-        # How output plugin behaves when its buffer queue is full
-        overflow_action drop_oldest_chunk
-        # The maximum seconds to retry to flush while failing, until plugin discards buffer chunks
-        retry_timeout 5m
-        # output plugin will retry periodically with fixed intervals (configured via retry_wait)
-        retry_type periodic
-        # Seconds to wait before next retry to flush
-        retry_wait 1
-        retry_randomize false
-        flush_mode interval
+        @include /etc/fluent/config.d/buffer.options
         path /gardener/flentd-buffers/kubernetes.shoot1.buffer
       </buffer>
+      # avoiding backup of unrecoverble errors
+      @include /etc/fluent/config.d/socondary.option
     </match>
 
     <match **>
@@ -113,47 +105,59 @@ data:
       host elasticsearch-logging.garden.svc
       port 9200
       logstash_format true
-      <buffer time,tag>
+      id_key _hash
+      reconnect_on_error true
+      <buffer>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 512
+        queued_chunks_limit_size 1024
         # The number of threads of output plugins, which is used to write chunks in parallel
-        flush_thread_count 10
-        #chunks per 5s
-        timekey 5
-        # delay for flush
-        timekey_wait 0
-        # The max size of each chunks
-        chunk_limit_size 128KB
-        # he size limitation of this buffer plugin instance
-        total_limit_size 3G
-        # The percentage of chunk size threshold for flushing  
-        chunk_full_threshold 0.9 
-        # no compression
-        compress text
-        # flush/write all buffer chunks at shutdown
-        flush_at_shutdown
-        # flush/write chunks per specified time
-        flush_interval 1s 
-        # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
-        flush_thread_interval 1.0
-        # How output plugin behaves when its buffer queue is full
-        overflow_action drop_oldest_chunk
-        # The maximum seconds to retry to flush while failing, until plugin discards buffer chunks
-        retry_timeout 5m
-        # output plugin will retry periodically with fixed intervals (configured via retry_wait)
-        retry_type periodic
-        # Seconds to wait before next retry to flush
-        retry_wait 1
-        retry_randomize false
-        flush_mode interval
+        flush_thread_count 8
+        @include /etc/fluent/config.d/buffer.options
         path /gardener/flentd-buffers/kubernetes.garden1.buffer
       </buffer>
+       @include /etc/fluent/config.d/socondary.option
     </match>
   system.conf: |-
     <system>
       root_dir /gardener/flentd-buffers/
     </system>
+
+  buffer.options: |-
+    #chunks per 5s
+    timekey 30
+    # delay for flush
+    timekey_wait 0
+    # The max size of each chunks
+    chunk_limit_size 2MB
+    # he size limitation of this buffer plugin instance
+    total_limit_size 3G
+    # The percentage of chunk size threshold for flushing  
+    chunk_full_threshold 0.9 
+    # no compression
+    compress text
+    # flush/write all buffer chunks at shutdown
+    flush_at_shutdown
+    # flush/write chunks per specified time
+    flush_interval 10s 
+    # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
+    flush_thread_interval 1.0
+    # How output plugin behaves when its buffer queue is full
+    overflow_action drop_oldest_chunk
+    # The maximum seconds to retry to flush while failing, until plugin discards buffer chunks
+    retry_timeout 5m
+    # output plugin will retry periodically with fixed intervals (configured via retry_wait)
+    retry_type periodic
+    # Seconds to wait before next retry to flush
+    retry_wait 10
+    retry_randomize false
+    flush_mode interval
+
+  socondary.option: |-
+    <secondary>
+      @type null
+    </secondary>
+
 kind: ConfigMap
 metadata:
   labels:

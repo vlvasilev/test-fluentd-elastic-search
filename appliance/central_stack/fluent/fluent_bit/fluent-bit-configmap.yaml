@@ -9,6 +9,7 @@ data:
     @INCLUDE input-kubernetes.conf
     @INCLUDE input-systemd.conf
     @INCLUDE input-kernel.conf
+    @INCLUDE filter-kubernetes.conf
     @INCLUDE output-fluentd.conf
   input-kernel.conf: |
     [INPUT]
@@ -45,6 +46,15 @@ data:
         Name            systemd
         Tag             journald.kubelet-monitor.*
         Systemd_Filter  _SYSTEMD_UNIT=kubelet-monitor.service
+  filter-kubernetes.conf: |
+    [FILTER]
+        Name                kubernetes
+        Match               kubernetes.*
+        Kube_URL            https://kubernetes.default.svc.cluster.local:443
+        Buffer_Size         1M
+        Merge_JSON_Log      On
+        K8S-Logging.Parser  On
+        tls.verify          Off
   output-fluentd.conf: |
     [OUTPUT]
         Name            forward

@@ -35,18 +35,15 @@ spec:
       containers:
       - env: 
         - name: FLUENTD_ARGS
-          value: "--workers=16 -v"
-        image: eu.gcr.io/gardener-project/gardener/fluentd-es:0.5.0
+          value: "--workers=1 -v"
+        image: eu.gcr.io/gardener-project/gardener/fluentd-es:0.6.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           tcpSocket:
             port: 24224
           periodSeconds: 5
-          timeoutSeconds: 2
+          timeoutSeconds: 3
           initialDelaySeconds: 5
-          # periodSeconds: 30
-          # timeoutSeconds: 10
-          # initialDelaySeconds: 30
         name: fluentd-es
         ports:
         - containerPort: 24224
@@ -57,11 +54,11 @@ spec:
           protocol: UDP
         resources:
           limits:
-            cpu: 700m
-            memory: 3200Mi
+            cpu: 1000m
+            memory: 1200Mi
           requests:
-            cpu: 450m
-            memory: 3000Mi
+            cpu: 900m
+            memory: 1100Mi
         volumeMounts:
         - mountPath: /etc/fluent/config.d
           name: config-volume
@@ -86,4 +83,4 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 5Gi
+          storage: 6Gi

@@ -33,10 +33,10 @@ spec:
         name: fluent-bit
         resources:
           limits:
-            cpu: 40m
+            cpu: 35m
             memory: 80Mi
           requests:
-            cpu: 15m
+            cpu: 20m
             memory: 40Mi
         volumeMounts:
         - mountPath: /fluent-bit/etc
@@ -47,6 +47,9 @@ spec:
           name: varlibdockercontainers
           readOnly: true
       restartPolicy: Always
+      serviceAccount: fluent-bit
+      serviceAccountName: fluent-bit
+      automountServiceAccountToken: true
       terminationGracePeriodSeconds: 10
       volumes:
       - configMap:
