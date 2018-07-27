@@ -55,10 +55,10 @@ spec:
         resources:
           limits:
             cpu: 1000m
-            memory: 1200Mi
+            memory: 1100Mi
           requests:
             cpu: 900m
-            memory: 1100Mi
+            memory: 1000Mi
         volumeMounts:
         - mountPath: /etc/fluent/config.d
           name: config-volume

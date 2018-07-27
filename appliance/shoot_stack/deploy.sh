@@ -17,11 +17,13 @@ for i in `seq 1 $1`; do
   kubectl apply -f ${SCRIPT_PATH}/es-statefulset.yaml
   sed -e "s/<NAMESPACE>/shoot$i/g" ${SCRIPT_PATH}/es-service-template.yaml > ${SCRIPT_PATH}/es-service.yaml
   kubectl apply -f ${SCRIPT_PATH}/es-service.yaml
+  sed -e "s/<NAMESPACE>/shoot$i/g" ${SCRIPT_PATH}/es-curator-template.yaml > ${SCRIPT_PATH}/es-curator.yaml
+  kubectl apply -f ${SCRIPT_PATH}/es-curator.yaml
 done
 
 #clean
 rm ${SCRIPT_PATH}/namespace.yaml
 rm ${SCRIPT_PATH}/es-statefulset.yaml
 rm ${SCRIPT_PATH}/es-service.yaml
-
+rm ${SCRIPT_PATH}/es-curator.yaml
 

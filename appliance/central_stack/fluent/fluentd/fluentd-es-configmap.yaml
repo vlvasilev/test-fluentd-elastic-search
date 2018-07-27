@@ -84,10 +84,12 @@ data:
       logstash_format true
       id_key _hash
       reconnect_on_error true
+      # gives time plugin to read bulk response from server
+      request_timeout 15s
       <buffer tag>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 2048
+        queued_chunks_limit_size 4096
         # The number of threads of output plugins, which is used to write chunks in parallel
         flush_thread_count 100
         @include /etc/fluent/config.d/buffer.options
@@ -107,10 +109,11 @@ data:
       logstash_format true
       id_key _hash
       reconnect_on_error true
+      request_timeout 15s
       <buffer>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 1024
+        queued_chunks_limit_size 2048
         # The number of threads of output plugins, which is used to write chunks in parallel
         flush_thread_count 8
         @include /etc/fluent/config.d/buffer.options
@@ -141,7 +144,7 @@ data:
     # flush/write chunks per specified time
     flush_interval 10s 
     # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
-    flush_thread_interval 1.0
+    flush_thread_interval 5.0
     # How output plugin behaves when its buffer queue is full
     overflow_action drop_oldest_chunk
     # The maximum seconds to retry to flush while failing, until plugin discards buffer chunks
@@ -152,6 +155,9 @@ data:
     retry_wait 10
     retry_randomize false
     flush_mode interval
+    retry_max_times 30
+    # this is only for debug. When flush take more time than this it will produce warning
+    slow_flush_log_threshold 60
 
   socondary.option: |-
     <secondary>
