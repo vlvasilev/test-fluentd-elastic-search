@@ -2,6 +2,9 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: fluent-bit-read
+  labels:
+    app: fluent-bit
+    role: logging
 rules:
 - apiGroups: [""]
   resources:

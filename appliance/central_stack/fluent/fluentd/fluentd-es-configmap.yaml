@@ -9,6 +9,8 @@ data:
       bind 0.0.0.0
     </source>
 
+    @include /etc/fluent/config.d/feedback.input.option
+
   output.conf: |-
 
     # <match raw.kubernetes.**>
@@ -65,7 +67,8 @@ data:
         key $.kubernetes.namespace_name
         pattern ^shoot.*
         invert true
-        tag non-shoot.${tag}
+        tag seed
+        #tag non-shoot.${tag}
       </rule>
     </match>
     #Do not collect fluentd's own logs to avoid infinite loops.
@@ -77,62 +80,73 @@ data:
     <match shoot**>
       @id elasticsearch_dynamic
       @type elasticsearch_dynamic
-      @log_level debug
+      @log_level warn
       include_tag_key true
       host elasticsearch-logging.${record['kubernetes']['namespace_name']}.svc
       port 9200
       logstash_format true
+      #use _hash field for log ID
       id_key _hash
       reconnect_on_error true
       # gives time plugin to read bulk response from server
       request_timeout 15s
-      <buffer tag>
+      # this is only for debug. When flush take more time than this it will produce warning
+      slow_flush_log_threshold 60
+      <buffer tag, time>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 4096
+        # queued_chunks_limit_size 4096 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        queued_chunks_limit_size 2048
         # The number of threads of output plugins, which is used to write chunks in parallel
-        flush_thread_count 100
+        # flush_thread_count 50 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        flush_thread_count 25
         @include /etc/fluent/config.d/buffer.options
         path /gardener/flentd-buffers/kubernetes.shoot1.buffer
       </buffer>
       # avoiding backup of unrecoverble errors
-      @include /etc/fluent/config.d/socondary.option
+      @include /etc/fluent/config.d/feedback.output.option
     </match>
 
     <match **>
       @id elasticsearch_static
       @type elasticsearch
-      @log_level debug
+      @log_level warn
       include_tag_key true
       host elasticsearch-logging.garden.svc
       port 9200
       logstash_format true
       id_key _hash
       reconnect_on_error true
-      request_timeout 15s
-      <buffer>
+      request_timeout 20s
+      # this is only for debug. When flush take more time than this it will produce warning
+      slow_flush_log_threshold 60
+      <buffer tag, time>
         @type file
         #Limit the number of queued chunks
-        queued_chunks_limit_size 2048
+        # queued_chunks_limit_size 2048 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        queued_chunks_limit_size 1024
         # The number of threads of output plugins, which is used to write chunks in parallel
-        flush_thread_count 8
+        # flush_thread_count 8 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        flush_thread_count 4    
         @include /etc/fluent/config.d/buffer.options
         path /gardener/flentd-buffers/kubernetes.garden1.buffer
       </buffer>
-       @include /etc/fluent/config.d/socondary.option
+       @include /etc/fluent/config.d/feedback.output.option
     </match>
+
+    @include /etc/fluent/config.d/feedback.process.option
   system.conf: |-
     <system>
       root_dir /gardener/flentd-buffers/
     </system>
 
   buffer.options: |-
-    #chunks per 5s
+    # The max size of each chunks
+    chunk_limit_size 15MB
+    #chunks per 30s
     timekey 30
     # delay for flush
     timekey_wait 0
-    # The max size of each chunks
-    chunk_limit_size 2MB
     # he size limitation of this buffer plugin instance
     total_limit_size 3G
     # The percentage of chunk size threshold for flushing  
@@ -140,7 +154,7 @@ data:
     # no compression
     compress text
     # flush/write all buffer chunks at shutdown
-    flush_at_shutdown
+    flush_at_shutdown true
     # flush/write chunks per specified time
     flush_interval 10s 
     # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
@@ -148,21 +162,131 @@ data:
     # How output plugin behaves when its buffer queue is full
     overflow_action drop_oldest_chunk
     # The maximum seconds to retry to flush while failing, until plugin discards buffer chunks
-    retry_timeout 5m
+    retry_timeout 100
     # output plugin will retry periodically with fixed intervals (configured via retry_wait)
     retry_type periodic
     # Seconds to wait before next retry to flush
-    retry_wait 10
+    retry_wait 15
     retry_randomize false
     flush_mode interval
-    retry_max_times 30
-    # this is only for debug. When flush take more time than this it will produce warning
-    slow_flush_log_threshold 60
+    retry_max_times 10
 
-  socondary.option: |-
+  secondary.null.option: |-
     <secondary>
       @type null
     </secondary>
+
+  feedback.input.option: |- 
+    <source>
+      @type forward
+      @id feedback_input
+      @log_level warn
+      port 24225
+      bind 127.0.0.1
+      @label @FEEDBACK
+    </source>
+
+  feedback.output.option: |-
+    <secondary>
+      @type forward
+      send_timeout 60s
+      recover_wait 10s
+      hard_timeout 60s
+
+      <server>
+        name feedback
+        host 127.0.0.1
+        port 24225
+      </server>
+    </secondary>
+
+  feedback.process.option: |-
+    <label @FEEDBACK>
+ 
+      <match shoot**>
+        @id elasticsearch_dynamic_feedback
+        @type elasticsearch_dynamic
+        @log_level warn
+        include_tag_key true
+        host elasticsearch-logging.${record['kubernetes']['namespace_name']}.svc
+        port 9200
+        logstash_format true
+        #makes _hash field the id of the given log
+        id_key _hash
+        reconnect_on_error true
+        # gives time plugin to read bulk response from server
+        request_timeout 15s
+        # this is only for debug. When flush take more time than this it will produce warning
+        slow_flush_log_threshold 60
+        <buffer tag,time>
+          @type file
+          #Limit the number of queued chunks
+          #queued_chunks_limit_size 2048!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          queued_chunks_limit_size 1024
+          # The number of threads of output plugins, which is used to write chunks in parallel
+          flush_thread_count 4
+          @include /etc/fluent/config.d/feedback.buffer.options
+          path /gardener/flentd-buffers/kubernetes.shoot.feedback.buffer
+        </buffer>
+        # avoiding backup of unrecoverble errors
+        @include /etc/fluent/config.d/secondary.null.option
+      </match>
+
+      <match **>
+        @id elasticsearch_static_feedback
+        @type elasticsearch
+        @log_level warn
+        include_tag_key true
+        host elasticsearch-logging.garden.svc
+        port 9200
+        logstash_format true
+        id_key _hash
+        reconnect_on_error true
+        # gives time plugin to read bulk response from server
+        request_timeout 15s
+        # this is only for debug. When flush take more time than this it will produce warning
+        slow_flush_log_threshold 60
+        <buffer tag,time>
+          @type file
+          #Limit the number of queued chunks
+          queued_chunks_limit_size 512
+          # The number of threads of output plugins, which is used to write chunks in parallel
+          flush_thread_count 2
+          @include /etc/fluent/config.d/feedback.buffer.options
+          path /gardener/flentd-buffers/kubernetes.garden.feedback.buffer
+        </buffer>
+        @include /etc/fluent/config.d/secondary.null.option
+      </match>
+    </label>
+
+  feedback.buffer.options: |-
+    #chunks per 6m
+    timekey 360
+    # delay for flush
+    timekey_wait 200
+    # The max size of each chunks
+    chunk_limit_size 25MB
+    # he size limitation of this buffer plugin instance
+    total_limit_size 1G
+    # The percentage of chunk size threshold for flushing  
+    chunk_full_threshold 0.9 
+    # no compression
+    compress text
+    # flush/write all buffer chunks at shutdown
+    flush_at_shutdown true
+    # flush/write chunks per specified time
+    flush_interval 5s 
+    # The sleep interval seconds of threads to wait next flush trial (when no chunks are waiting)
+    flush_thread_interval 5.0
+    # How output plugin behaves when its buffer queue is full
+    overflow_action drop_oldest_chunk
+    # output plugin will retry periodically with fixed intervals (configured via retry_wait)
+    retry_type periodic
+    # Seconds to wait before next retry to flush
+    retry_wait 75s
+    retry_randomize false
+    flush_mode interval
+    retry_max_times 2
 
 kind: ConfigMap
 metadata:

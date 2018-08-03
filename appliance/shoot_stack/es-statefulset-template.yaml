@@ -23,7 +23,7 @@ spec:
         role: logging
     spec:
       containers:
-      - image: eu.gcr.io/gardener-project/gardener/elasticsearch-oss:0.5.0
+      - image: hisshadow85/elastic_search:1.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -54,10 +54,10 @@ spec:
         resources:
           limits:
             cpu: 400m
-            memory: 1536Mi
+            memory: 1792Mi
           requests:
-            cpu: 100m
-            memory: 1536Mi
+            cpu: 200m
+            memory: 1792Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -98,4 +98,4 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 8Gi
+          storage: 10Gi

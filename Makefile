@@ -67,7 +67,7 @@ deploy-shoot-stack:
 	@./appliance/shoot_stack/deploy.sh $(SHOOTS)
 
 .PHONY: deploy-appliance
-deploy-appliance: deploy-center-stack deploy-shoot-stack deploy-server-one
+deploy-appliance: deploy-shoot-stack deploy-center-stack deploy-server-one
 
 .PHONY: run-test
 run-test:

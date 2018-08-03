@@ -5,7 +5,7 @@ metadata:
   namespace: <NAMESPACE>
   labels:
     app: curator
-    role: logging
+    role: loging
 spec:
   schedule: "*/5 * * * *"
   successfulJobsHistoryLimit: 1
@@ -46,7 +46,7 @@ metadata:
   namespace: <NAMESPACE>
   labels:
     app: curator
-    role: logging
+    role: loging
 data:
   action_file.yml: |-
     # Remember, leave a key empty if there is no value.  None will be a string,
@@ -80,7 +80,8 @@ data:
         description: "Clean up ES by deleting some indices by space"
         filters:
         - filtertype: space
-          disk_space: 7
+          disk_space: 5
+          reverse: True
         options:
           timeout_override:
           continue_if_exception: False
@@ -94,12 +95,29 @@ data:
           index_settings:
             index:
               blocks:
-                write: False
-                read_only_allow_delete: null 
+                read_only_allow_delete: null
+              number_of_replicas: 0
+              refresh_interval: 60s
+              translog:
+                durability: async
           ignore_unavailable: False
           preserve_existing: False
+          continue_if_exception: True
         filters:
           - filtertype: none
+      4:
+        action: forcemerge
+        description: >-
+          Perform a forceMerge on selected indices to 'max_num_segments' per shard
+        options:
+          max_num_segments: 1
+          timeout_override: 21600
+          delay: 120
+          continue_if_exception: True
+        filters:
+          - filtertype: forcemerged
+            max_num_segments: 1
+            exclude: True
 
   config.yml: |-
     # Remember, leave a key empty if there is no value.  None will be a string,
