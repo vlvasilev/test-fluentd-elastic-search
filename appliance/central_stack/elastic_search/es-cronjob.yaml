@@ -1,46 +1,136 @@
-# apiVersion: batch/v1beta1
-# kind: CronJob
-# metadata:
-#   name: es-read-only-removal
-#   namespace: garden
-#   labels:
-#     app: es-read-only-removal
-#     role: logging
-# spec:
-#   schedule: "*/5 * * * *"
-#   successfulJobsHistoryLimit: 1
-#   failedJobsHistoryLimit: 3
-#   concurrencyPolicy: Forbid
-#   startingDeadlineSeconds: 120
-#   jobTemplate:
-#     spec:
-#       template:
-#         spec:
-#           restartPolicy: Never
-#           containers:
-#           - image: byrnedo/alpine-curl:0.1.6
-#             name: es-read-only-removal
-#             command: ["curl"]
-#             args: ["-XPUT", "-H 'Content-Type: application/json'", '-d "{"index.blocks.read_only_allow_delete": null}"', "http://elasticsearch-logging.garden.svc:9200/_all/_settings"]
-#             resources:
-#               limits:
-#                 cpu: 10m
-#                 memory: 50Mi
-#               requests:
-#                 cpu: 10m
-#                 memory: 30Mi
 ---
-
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: curator
+  name: hourly-curator
   namespace: garden
   labels:
     app: curator
     role: loging
 spec:
-  schedule: "*/5 * * * *"
+  schedule: "0 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - image: hisshadow85/curator:0.6
+            name: curator
+            command: ["/bin/sh","-c"]
+            args: ["extra_deletion --disk_threshold=10000000000; /usr/local/bin/curator --config /etc/config/config.yml /etc/config/action_file.yml"]
+            volumeMounts:
+            - name: config
+              mountPath: /etc/config
+            resources:
+              limits:
+                cpu: 10m
+                memory: 50Mi
+              requests:
+                cpu: 10m
+                memory: 30Mi
+          volumes:
+          - name: config
+            configMap:
+              name: curator-hourly-config
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: curator-hourly-config
+  namespace: garden
+  labels:
+    app: curator
+    role: loging
+data:
+  action_file.yml: |-
+    # Remember, leave a key empty if there is no value.  None will be a string,
+    # not a Python "NoneType"
+    #
+    # Also remember that all examples have 'disable_action' set to True.  If you
+    # want to use this action as a template, be sure to set this to False after
+    # copying it.
+    actions:
+      1: 
+        action: forcemerge
+        description: >-
+          Perform a forceMerge on selected indices to 'max_num_segments' per shard
+        options:
+          max_num_segments: 1
+          timeout_override: 21600
+          delay: 120
+          continue_if_exception: True
+        filters:
+        - filtertype: age
+          source: name
+          direction: older
+          timestring: '%Y.%m.%d'
+          unit: days
+          unit_count: 1
+          field:
+          stats_result:
+          epoch:
+          exclude: True
+        2: 
+          action: index_settings
+          description: >-
+            Set shard replicas to 0 and remove the indix from read only
+          options:
+            index_settings:
+              index:
+                blocks:
+                  read_only_allow_delete: null
+            ignore_unavailable: False
+            preserve_existing: False
+            continue_if_exception: True
+          filters:
+          - filtertype: age
+            source: name
+            direction: older
+            timestring: '%Y.%m.%d'
+            unit: days
+            unit_count: 1
+            field:
+            stats_result:
+            epoch:
+            exclude: True
+  config.yml: |-
+    # Remember, leave a key empty if there is no value.  None will be a string,
+    # not a Python "NoneType"
+    client:
+      hosts:
+        - elasticsearch-logging.garden.svc
+      port: 9200
+      url_prefix:
+      use_ssl: False
+      certificate:
+      client_cert:
+      client_key:
+      ssl_no_validate: False
+      http_auth:
+      timeout: 30
+      master_only: False
+    logging:
+      loglevel: INFO
+      logfile:
+      logformat: default
+      blacklist: ['elasticsearch', 'urllib3']
+---
+
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: daily-curator
+  namespace: garden
+  labels:
+    app: curator
+    role: loging
+spec:
+  schedule: "5 0,6,12,18 * * *"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   concurrencyPolicy: Forbid
@@ -69,13 +159,13 @@ spec:
           volumes:
           - name: config
             configMap:
-              name: curator-config
+              name: curator-daily-config
           restartPolicy: OnFailure
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: curator-config
+  name: curator-daily-config
   namespace: garden
   labels:
     app: curator
@@ -108,49 +198,31 @@ data:
           stats_result:
           epoch:
           exclude: False
-      2:
-        action: delete_indices
-        description: "Clean up ES by deleting some indices by space"
-        filters:
-        - filtertype: space
-          disk_space: 5
-          reverse: True
-        options:
-          timeout_override:
-          continue_if_exception: False
-          disable_action: False
-          ignore_empty_list: True
-      3: 
+      2: 
         action: index_settings
         description: >-
-          Set Logstash indices older than 10 days to be read only (block writes)
+          Set refresh interval and translog.durability to undices younger than a day
         options:
           index_settings:
             index:
-              blocks:
-                read_only_allow_delete: null
-              number_of_replicas: 0
               refresh_interval: 60s
               translog:
                 durability: async
+            number_of_replicas: 0
           ignore_unavailable: False
           preserve_existing: False
           continue_if_exception: True
         filters:
-          - filtertype: none
-      4:
-        action: forcemerge
-        description: >-
-          Perform a forceMerge on selected indices to 'max_num_segments' per shard
-        options:
-          max_num_segments: 1
-          timeout_override: 21600
-          delay: 120
-          continue_if_exception: True
-        filters:
-          - filtertype: forcemerged
-            max_num_segments: 1
-            exclude: True
+        - filtertype: age
+          source: name
+          direction: older
+          timestring: '%Y.%m.%d'
+          unit: days
+          unit_count: 1
+          field:
+          stats_result:
+          epoch:
+          exclude: True
   config.yml: |-
     # Remember, leave a key empty if there is no value.  None will be a string,
     # not a Python "NoneType"

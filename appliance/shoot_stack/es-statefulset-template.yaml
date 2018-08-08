@@ -23,7 +23,7 @@ spec:
         role: logging
     spec:
       containers:
-      - image: hisshadow85/elastic_search:1.4
+      - image: hisshadow85/elastic_search:1.5
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
